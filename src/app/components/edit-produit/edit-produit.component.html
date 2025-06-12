@@ -1,0 +1,74 @@
+<app-header2></app-header2>
+<body>
+  <div class="container mt-4">
+    <div class="row">
+      <div class="col">
+        <br><br><br>
+        <p class="h3 fw-bold gradient-text"><i class="fa fa-pen"></i> Modifier produit</p>
+        <br>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="row">
+      <div class="col-sm-4">
+        <form #editPlatForm="ngForm" (ngSubmit)="editProduit()">
+          <div class="mb-2">
+            <input
+              [(ngModel)]="produit.codeProduit"
+              name="codeProduit"
+              type="text"
+              class="form-control"
+              placeholder="Code du produit"
+              readonly
+            >
+          </div><br>
+          <div class="mb-2">
+            <input
+              [(ngModel)]="produit.nomProduit"
+              name="nomProduit"
+              type="text"
+              class="form-control"
+              placeholder="Nom du produit"
+            >
+          </div><br>
+          <div class="mb-2">
+            <input
+              [(ngModel)]="produit.libelle"
+              name="libelle"
+              type="text"
+              class="form-control"
+              placeholder="Libellé"
+            >
+          </div><br>
+          <div class="mb-2">
+            <input
+              [(ngModel)]="produit.description"
+              name="description"
+              type="text"
+              class="form-control"
+              placeholder="Description"
+            >
+          </div><br>
+          <div class="mb-2 form-group">
+            <input
+              [(ngModel)]="produit.prix"
+              name="prix"
+              type="number"
+              class="form-control"
+              placeholder="Prix"
+            >
+          </div><br>
+          <div class="mb-2">
+            <input type="submit" class="custom-btn" value="Modifier Produit">
+            <a [routerLink]="['/produits', typeId]" class="custom-btn-outline ms-2">Annuler</a>
+          </div>
+        </form>
+      </div>
+      <div class="col-sm-6">
+        <img src="assets/img/a2.jpg" alt="Produit" class="produit-img">
+      </div>
+    </div>
+  </div>
+</body>
