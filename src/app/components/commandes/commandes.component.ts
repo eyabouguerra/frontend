@@ -7,6 +7,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { AddCommandeComponent } from '../add-commande/add-commande.component';
 import { forkJoin, Subscription } from 'rxjs';
 import Swal from 'sweetalert2';
+import { ProductPopupComponent } from '../product-popup/product-popup.component';
 
 @Component({
   selector: 'app-commandes',
@@ -455,42 +456,44 @@ updateCommandeStatusFromLivraison(livraison: any): void {
   }
 
   // Extraire les produits pour l'affichage
-  extractProduits(): void {
-    this.produits = [];
-    
-    this.allCommandes.forEach((commande: any) => {
-      const clientNom = commande.clientNom || 'Client inconnu';
-      if (Array.isArray(commande.commandeProduits)) {
-        commande.commandeProduits.forEach((cp: any) => {
-          const produit = cp.produit || {};
-          const typeTrouve = this.typeProduits.find(type =>
-            type.produits?.some((p: any) => p.id === produit.id)
-          );
+extractProduits(): void {
+  this.produits = [];
 
-          const produitExist = this.produits.find(p =>
-            p.idCommande === commande.id && p.produitNom === produit.nomProduit
-          );
+  const commandeMap = new Map<number, any>();
 
-          if (!produitExist) {
-            this.produits.push({
-              idCommande: commande.id,
-              codeCommande: commande.codeCommande || 'Code inconnu',
-              clientNom: clientNom,
-              produitNom: produit.nomProduit || 'Nom introuvable',
-              commandeQuantite: cp.quantite || 'Non définie',
-              dateCommande: commande.dateCommande,
-              prix: commande.price || 0,
-              typeProduit: typeTrouve?.name || 'Type inconnu',
-              livraisonStatut: commande.livraisonStatut || 'SANS_LIVRAISON',
-              statutCommande: commande.statut || 'PLANNIFIER'
-            });
-          }
-        });
-      }
-    });
+  this.allCommandes.forEach((commande: any) => {
+    const clientNom = commande.clientNom || 'Client inconnu';
+    if (Array.isArray(commande.commandeProduits)) {
+      const produits = commande.commandeProduits.map((cp: any) => {
+        const produit = cp.produit || {};
+        const typeTrouve = this.typeProduits.find(type =>
+          type.produits?.some((p: any) => p.id === produit.id)
+        );
+        return {
+          nomProduit: produit.nomProduit || 'Nom introuvable',
+          quantite: cp.quantite || 'Non définie',
+          typeProduit: typeTrouve?.name || 'Type inconnu'
+        };
+      });
 
-    console.log(`📊 Produits extraits: ${this.produits.length} actifs`);
-  }
+      commandeMap.set(commande.id, {
+        idCommande: commande.id,
+        codeCommande: commande.codeCommande || 'Code inconnu',
+        clientNom: clientNom,
+        produits: produits, // Liste des produits pour cette commande
+        dateCommande: commande.dateCommande,
+        prix: commande.price || 0,
+        livraisonStatut: commande.livraisonStatut || 'SANS_LIVRAISON',
+        statutCommande: commande.statut || 'PLANNIFIER'
+      });
+    }
+  });
+
+  // Ajouter les commandes regroupées dans la liste produits
+  commandeMap.forEach((value) => this.produits.push(value));
+
+  console.log(`📊 Produits extraits: ${this.produits.length} commandes avec produits regroupés`);
+}
 
   // Supprimer une commande
   deleteCommandeById(id: number): void {
@@ -545,57 +548,67 @@ updateCommandeStatusFromLivraison(livraison: any): void {
   }
 
   // Filtrer les produits pour l'affichage
-  get produitsFiltres(): any[] {
-    const search = this.searchText?.toLowerCase() || '';
+ get produitsFiltres(): any[] {
+  const search = this.searchText?.toLowerCase() || '';
+  
+  if (this.showArchives) {
+    const produitsArchives: any[] = [];
+    this.archivedCommandes.forEach((commande: any) => {
+      const clientNom = commande.clientNom || 'Client inconnu';
+      if (Array.isArray(commande.commandeProduits)) {
+        const produits = commande.commandeProduits.map((cp: any) => {
+          const produit = cp.produit || {};
+          const typeTrouve = this.typeProduits.find(type =>
+            type.produits?.some((p: any) => p.id === produit.id)
+          );
+          return {
+            nomProduit: produit.nomProduit || 'Nom introuvable',
+            quantite: cp.quantite || 'Non définie',
+            typeProduit: typeTrouve?.name || 'Type inconnu'
+          };
+        });
+        produitsArchives.push({
+          idCommande: commande.id,
+          codeCommande: commande.codeCommande || 'Code inconnu',
+          clientNom: clientNom,
+          produits: produits,
+          dateCommande: commande.dateCommande,
+          prix: commande.price || 0,
+          typeProduit: produits.length > 0 ? produits[0].typeProduit : 'Type inconnu',
+          livraisonStatut: commande.livraisonStatut || 'SANS_LIVRAISON',
+          statutCommande: commande.statut || 'PLANNIFIER'
+        });
+      }
+    });
     
-    if (this.showArchives) {
-      const produitsArchives: any[] = [];
-      this.archivedCommandes.forEach((commande: any) => {
-        const clientNom = commande.clientNom || 'Client inconnu';
-        if (Array.isArray(commande.commandeProduits)) {
-          commande.commandeProduits.forEach((cp: any) => {
-            const produit = cp.produit || {};
-            const typeTrouve = this.typeProduits.find(type =>
-              type.produits?.some((p: any) => p.id === produit.id)
-            );
-
-            produitsArchives.push({
-              idCommande: commande.id,
-              codeCommande: commande.codeCommande || 'Code inconnu',
-              clientNom: clientNom,
-              produitNom: produit.nomProduit || 'Nom introuvable',
-              commandeQuantite: cp.quantite || 'Non définie',
-              dateCommande: commande.dateCommande,
-              prix: commande.price || 0,
-              typeProduit: typeTrouve?.name || 'Type inconnu',
-              livraisonStatut: commande.livraisonStatut || 'SANS_LIVRAISON',
-              statutCommande: commande.statut || 'PLANNIFIER'
-            });
-          });
-        }
-      });
-      
-      return produitsArchives.filter(produit => {
-        return (
-          !search ||
-          produit.codeCommande?.toLowerCase().includes(search) ||
-          produit.produitNom?.toLowerCase().includes(search) ||
-          produit.clientNom?.toLowerCase().includes(search) ||
-          produit.typeProduit?.toLowerCase().includes(search) ||
-          this.getStatutCommandeLabel(produit.statutCommande)?.toLowerCase().includes(search)
-        );
-      });
-    } else {
-      return this.produits.filter(produit => {
-        return (
-          !search ||
-          produit.codeCommande?.toLowerCase().includes(search) ||
-          produit.produitNom?.toLowerCase().includes(search) ||
-          produit.clientNom?.toLowerCase().includes(search) ||
-          produit.typeProduit?.toLowerCase().includes(search) ||
-          this.getStatutCommandeLabel(produit.statutCommande)?.toLowerCase().includes(search)
-        );
-      });
-    }
+    return produitsArchives.filter(produit => {
+      return (
+        !search ||
+        produit.codeCommande?.toLowerCase().includes(search) ||
+        produit.clientNom?.toLowerCase().includes(search) ||
+        produit.produits.some((p: any) => p.nomProduit?.toLowerCase().includes(search)) ||
+        this.getStatutCommandeLabel(produit.statutCommande)?.toLowerCase().includes(search)
+      );
+    });
+  } else {
+    return this.produits.filter(produit => {
+      return (
+        !search ||
+        produit.codeCommande?.toLowerCase().includes(search) ||
+        produit.clientNom?.toLowerCase().includes(search) ||
+        produit.produits.some((p: any) => p.nomProduit?.toLowerCase().includes(search)) ||
+        this.getStatutCommandeLabel(produit.statutCommande)?.toLowerCase().includes(search)
+      );
+    });
   }
+}
+
+openProductPopup(produits: any[]): void {
+    this.dialog.open(ProductPopupComponent, {
+      width: '700px', // Augmenter la largeur à 700px (ou plus selon vos besoins)
+      height: '400px', // Ajouter une hauteur explicite pour agrandir la popup
+      data: { produits: produits }
+    });
+  }
+
 }

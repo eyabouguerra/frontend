@@ -43,6 +43,7 @@ export class TypeProduitComponent {
       (p.description && p.description.toLowerCase().includes(term))
     );
   }
+  
   deleteProduitById(id: number): void {
     Swal.fire({
       title: 'Êtes-vous sûr de vouloir supprimer ce produit ?',

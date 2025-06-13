@@ -7,7 +7,7 @@ import { Observable } from 'rxjs';
 })
 export class CamionService {
 
-  private apiUrl = 'http://localhost:8090/api/camions'; // URL de ton API backend
+  private apiUrl = 'http://localhost:8090/api/camions'; 
 
   constructor(private http: HttpClient) { }
 

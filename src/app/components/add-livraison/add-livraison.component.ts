@@ -345,46 +345,110 @@ private chargerCiternes(): void {
   });
 }
 
-  onCiterneSelectionChange(event: any): void {
-    const citerneId = event.target.value;
-    if (citerneId) {
-      this.compartimentService.getCompartimentsByCiterneId(citerneId).pipe(
-        catchError(err => {
-          console.error('Erreur lors du chargement des compartiments:', err);
-          this.snackBar.open('Erreur lors du chargement des compartiments', 'Fermer', { duration: 3000 });
-          return of([]);
-        })
-      ).subscribe(data => {
-        this.compartiments = data;
-        this.initialiserCompartimentCommandesMap();
-      });
-    } else {
-      this.compartiments = [];
-      this.compartimentCommandesMap = {};
-    }
-  }
 
-  initialiserCompartimentCommandesMap(): void {
-    this.compartimentCommandesMap = {};
-    this.compartiments.forEach(compartiment => {
-      this.compartimentCommandesMap[compartiment.reference] = this.filtrerEtTrierCommandes(this.listeCommandes, compartiment);
+// 1. Correction de la méthode filtrerEtTrierCommandes()
+filtrerEtTrierCommandes(commandes: Commande[], compartiment: Compartiment): Commande[] {
+  console.log('Filtrage des commandes pour compartiment:', compartiment.reference);
+  console.log('Types de produits du compartiment:', compartiment.typeProduits);
+  console.log('Commandes disponibles:', commandes);
+
+  return commandes
+    .filter(cmd => {
+      // Vérification de compatibilité du type de produit (insensible à la casse)
+      const typeCompatible = compartiment.typeProduits.some(tp => 
+        tp.name.toLowerCase().trim() === cmd.typeProduit?.toLowerCase().trim()
+      );
+      
+      // Vérification de la capacité disponible
+      const capaciteDisponible = compartiment.capaciteRestante ?? compartiment.capaciteMax;
+      const capaciteOk = cmd.commandeQuantite <= capaciteDisponible;
+      
+      // Vérification que la commande n'est pas déjà affectée
+      const pasDejaAffectee = !this.commandesDejaAffectees.has(cmd.idCommande);
+      
+      // Vérification que la commande n'est pas sélectionnée dans le formulaire actuel
+      const pasSelectionnee = !this.isCommandeSelectedInCurrentForm(cmd.idCommande);
+
+      console.log(`Commande ${cmd.codeCommande}:`, {
+        typeProduit: cmd.typeProduit,
+        typeCompatible,
+        capaciteOk,
+        pasDejaAffectee,
+        pasSelectionnee,
+        quantite: cmd.commandeQuantite,
+        capaciteDisponible
+      });
+
+      return typeCompatible && capaciteOk && pasDejaAffectee && pasSelectionnee;
+    })
+    .sort((a, b) => {
+      const dateA = new Date(a.dateCommande).getTime();
+      const dateB = new Date(b.dateCommande).getTime();
+      return dateA === dateB ? a.commandeQuantite - b.commandeQuantite : dateA - dateB;
     });
-  }
+}
 
-  filtrerEtTrierCommandes(commandes: Commande[], compartiment: Compartiment): Commande[] {
-    return commandes
-      .filter(cmd =>
-        compartiment.typeProduits.some(tp => tp.name.toLowerCase() === cmd.typeProduit?.toLowerCase()) &&
-        cmd.commandeQuantite <= (compartiment.capaciteRestante ?? compartiment.capaciteMax) &&
-        !this.commandesDejaAffectees.has(cmd.idCommande) &&
-        !this.isCommandeSelectedInCurrentForm(cmd.idCommande)
-      )
-      .sort((a, b) => {
-        const dateA = new Date(a.dateCommande).getTime();
-        const dateB = new Date(b.dateCommande).getTime();
-        return dateA === dateB ? a.commandeQuantite - b.commandeQuantite : dateA - dateB;
+
+
+// 3. Amélioration de la méthode initialiserCompartimentCommandesMap()
+initialiserCompartimentCommandesMap(): void {
+  console.log('Initialisation de la map des commandes par compartiment');
+  console.log('Compartiments:', this.compartiments);
+  console.log('Liste des commandes:', this.listeCommandes);
+  
+  this.compartimentCommandesMap = {};
+  
+  this.compartiments.forEach(compartiment => {
+    const commandesCompatibles = this.filtrerEtTrierCommandes(this.listeCommandes, compartiment);
+    this.compartimentCommandesMap[compartiment.reference] = commandesCompatibles;
+    
+    console.log(`Compartiment ${compartiment.reference} - Commandes compatibles:`, commandesCompatibles);
+  });
+  
+  console.log('Map finale des commandes par compartiment:', this.compartimentCommandesMap);
+}
+
+// 4. Correction de la méthode onCiterneSelectionChange() pour debug
+onCiterneSelectionChange(event: any): void {
+  const citerneId = event.target.value;
+  console.log('Citerne sélectionnée:', citerneId);
+  
+  if (citerneId) {
+    this.compartimentService.getCompartimentsByCiterneId(citerneId).pipe(
+      catchError(err => {
+        console.error('Erreur lors du chargement des compartiments:', err);
+        this.snackBar.open('Erreur lors du chargement des compartiments', 'Fermer', { duration: 3000 });
+        return of([]);
+      })
+    ).subscribe(data => {
+      console.log('Compartiments chargés:', data);
+      this.compartiments = data;
+      
+      // Initialiser la capacité restante pour chaque compartiment
+      this.compartiments.forEach(compartiment => {
+        if (compartiment.capaciteRestante === undefined) {
+          compartiment.capaciteRestante = compartiment.capaciteMax;
+        }
       });
+      
+      this.initialiserCompartimentCommandesMap();
+    });
+  } else {
+    this.compartiments = [];
+    this.compartimentCommandesMap = {};
   }
+}
+
+// 5. Méthode utilitaire pour debug
+debugCommandes(): void {
+  console.log('=== DEBUG COMMANDES ===');
+  console.log('Types de produits:', this.typeproduits);
+  console.log('Liste des commandes:', this.listeCommandes);
+  console.log('Compartiments:', this.compartiments);
+  console.log('Map des commandes par compartiment:', this.compartimentCommandesMap);
+  console.log('Commandes déjà affectées:', this.commandesDejaAffectees);
+  console.log('======================');
+}
 
   isCommandeSelectedInCurrentForm(commandeId: number): boolean {
     for (const compartiment of this.compartiments) {

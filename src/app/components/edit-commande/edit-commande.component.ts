@@ -1,12 +1,20 @@
 import { Component, OnInit } from '@angular/core';
-import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
+import { MatDialog } from '@angular/material/dialog';
 import { Client } from 'src/app/model/client';
 import { ClientService } from 'src/app/services/client.service';
 import { CommandeService } from 'src/app/services/commande.service';
 import { ProduitService } from 'src/app/services/produit.service';
-import { Observable } from 'rxjs';
+import { Observable, BehaviorSubject } from 'rxjs';
 import Swal from 'sweetalert2';
+
+// Define the interface for CommandeProduit
+interface CommandeProduit {
+  id?: number;
+  produit?: { id: number; nomProduit?: string; typeProduit?: { name?: string } };
+  quantite?: number;
+}
 
 @Component({
   selector: 'app-edit-commande',
@@ -17,9 +25,11 @@ export class EditCommandeComponent implements OnInit {
   commandeForm: FormGroup;
   id!: number;
   produits: any[] = [];
-  nomProduitSelectionne: string = '';
-  price: number = 0;
   clients: Client[] = [];
+  
+  // BehaviorSubject pour synchroniser les données du popup
+  private produitsForPopup = new BehaviorSubject<any[]>([]);
+  public produitsForPopup$ = this.produitsForPopup.asObservable();
 
   constructor(
     private fb: FormBuilder,
@@ -27,26 +37,37 @@ export class EditCommandeComponent implements OnInit {
     private router: Router,
     private commandeService: CommandeService,
     private produitService: ProduitService,
-    private clientService: ClientService
+    private clientService: ClientService,
+    private dialog: MatDialog
   ) {
     this.commandeForm = this.fb.group({
       codeCommande: ['', Validators.required],
       clientId: [null, Validators.required],
-      produitId: ['', Validators.required],
-      quantite: [1, [Validators.required, Validators.min(1)]],
       dateCommande: ['', Validators.required],
-      price: ['', Validators.required]
+      price: ['', Validators.required],
+      commandeProduits: this.fb.array([])
     });
   }
 
+  get commandeProduits(): FormArray {
+    return this.commandeForm.get('commandeProduits') as FormArray;
+  }
+
   ngOnInit(): void {
-    this.id = this.route.snapshot.params['id'];
+    this.id = +this.route.snapshot.params['id'];
+    if (isNaN(this.id)) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Erreur',
+        text: 'ID de commande invalide.',
+        confirmButtonColor: '#dc3545'
+      }).then(() => this.router.navigate(['/commandes']));
+      return;
+    }
+
     this.loadProduits();
     this.loadCommande();
     this.loadClients();
-
-    this.commandeForm.get('produitId')?.valueChanges.subscribe(() => this.calculateTotalPrice());
-    this.commandeForm.get('quantite')?.valueChanges.subscribe(() => this.calculateTotalPrice());
   }
 
   loadClients(): void {
@@ -60,34 +81,35 @@ export class EditCommandeComponent implements OnInit {
     return client ? client.fullName : 'Client inconnu';
   }
 
-  getNomProduitParId(id: number): string {
-    const produit = this.produits.find(p => p.id === id);
-    return produit ? produit.nomProduit : '';
-  }
-
   loadCommande(): void {
     this.commandeService.getCommandeById(this.id).subscribe({
       next: (commande) => {
-        const produitCommande = commande.commandeProduits?.[0];
-
-        // Prioritize quantite from commandes table
-        const quantite = commande.quantite ?? produitCommande?.quantite ?? 1;
-
         this.commandeForm.patchValue({
           codeCommande: commande.codeCommande,
-          produitId: produitCommande?.produit?.id || '',
-          quantite: quantite,
           dateCommande: commande.dateCommande,
-          price: commande.price,
+          price: commande.price || 0,
           clientId: commande.client?.clientId || null
         });
 
-        this.commandeForm.get('quantite')?.updateValueAndValidity();
+        const commandeProduitsArray = this.fb.array([]);
+        if (commande.commandeProduits && Array.isArray(commande.commandeProduits)) {
+          commande.commandeProduits.forEach((cp: CommandeProduit) => {
+            const productGroup = this.fb.group({
+              nomProduit: [{ value: cp.produit?.nomProduit || '', disabled: true }],
+              quantite: [cp.quantite || 1, [Validators.required, Validators.min(1)]],
+              typeProduit: [{ value: cp.produit?.typeProduit?.name || '', disabled: true }],
+              produitId: [cp.produit?.id || null, Validators.required]
+            });
+            commandeProduitsArray.push(productGroup as any);
+          });
+        }
+        this.commandeForm.setControl('commandeProduits', commandeProduitsArray);
 
-        this.nomProduitSelectionne = produitCommande?.produit?.nomProduit || '';
-        this.price = commande.price;
+        this.calculateTotalPrice();
+        this.updateProduitsForPopup(); // Initialiser les données du popup
       },
-      error: () => {
+      error: (error) => {
+        console.error('Error loading commande:', error);
         Swal.fire({
           icon: 'error',
           title: 'Erreur',
@@ -101,7 +123,8 @@ export class EditCommandeComponent implements OnInit {
   loadProduits(): void {
     this.produitService.getAllProduits().subscribe({
       next: (res) => (this.produits = res),
-      error: () => {
+      error: (error) => {
+        console.error('Error loading produits:', error);
         Swal.fire({
           icon: 'error',
           title: 'Erreur',
@@ -113,27 +136,53 @@ export class EditCommandeComponent implements OnInit {
   }
 
   calculateTotalPrice(): void {
-    const produitId = this.commandeForm.get('produitId')?.value;
-    const quantite = this.commandeForm.get('quantite')?.value;
-    const produit = this.produits.find(p => p.id == produitId);
-
-    if (produit && quantite > 0) {
-      this.price = produit.prix * quantite;
-      this.commandeForm.get('price')?.setValue(this.price);
-    }
+    let totalPrice = 0;
+    this.commandeProduits.controls.forEach((control: any) => {
+      const group = control as FormGroup;
+      const produitId = group.get('produitId')?.value;
+      const quantite = group.get('quantite')?.value || 0;
+      const produit = this.produits.find(p => p.id === produitId);
+      if (produit && quantite > 0) {
+        totalPrice += produit.prix * quantite;
+      }
+    });
+    this.commandeForm.get('price')?.setValue(totalPrice);
+    
+    // Mettre à jour les données du popup après recalcul
+    this.updateProduitsForPopup();
   }
 
-  private getCommandeProduitId(): Observable<number | undefined> {
-    return new Observable<number | undefined>(observer => {
+  // Nouvelle méthode pour mettre à jour les données du popup
+  updateProduitsForPopup(): void {
+    const produitsData = this.commandeProduits.controls.map((control: any) => {
+      const group = control as FormGroup;
+      return {
+        nomProduit: group.get('nomProduit')?.value,
+        quantite: group.get('quantite')?.value,
+        typeProduit: group.get('typeProduit')?.value
+      };
+    });
+    this.produitsForPopup.next(produitsData);
+  }
+
+  // Méthode appelée lors du changement de quantité
+  onQuantityChange(): void {
+    this.calculateTotalPrice();
+  }
+
+
+
+  private getCommandeProduitIds(): Observable<(number | undefined)[]> {
+    return new Observable<(number | undefined)[]>(observer => {
       this.commandeService.getCommandeById(this.id).subscribe({
         next: (commande) => {
-          const commandeProduitId = commande.commandeProduits?.[0]?.id;
-          observer.next(commandeProduitId);
+          const ids = commande.commandeProduits?.map((cp: CommandeProduit) => cp.id) || [];
+          observer.next(ids);
           observer.complete();
         },
         error: (error) => {
-          console.error('Erreur lors de la récupération de commande_produit ID:', error);
-          observer.next(undefined);
+          console.error('Erreur lors de la récupération des commande_produit IDs:', error);
+          observer.next([]);
           observer.complete();
         }
       });
@@ -151,22 +200,21 @@ export class EditCommandeComponent implements OnInit {
       return;
     }
 
-    this.getCommandeProduitId().subscribe({
-      next: (existingCommandeProduitId) => {
+    this.getCommandeProduitIds().subscribe({
+      next: (existingCommandeProduitIds) => {
         const formValues = this.commandeForm.getRawValue();
 
         const commandeToUpdate = {
           id: this.id,
           codeCommande: formValues.codeCommande,
           dateCommande: formValues.dateCommande,
-          quantite: formValues.quantite, // Update in commandes table
-          price: this.price,
+          price: formValues.price,
           client: formValues.clientId ? { clientId: formValues.clientId } : null,
-          commandeProduits: [{
-            id: existingCommandeProduitId, // Use existing ID
-            produit: { id: formValues.produitId },
-            quantite: formValues.quantite // Update existing commande_produits
-          }]
+          commandeProduits: formValues.commandeProduits.map((cp: any, index: number) => ({
+            id: existingCommandeProduitIds[index],
+            produit: { id: cp.produitId },
+            quantite: cp.quantite
+          }))
         };
 
         this.commandeService.updateCommande(commandeToUpdate).subscribe({
@@ -189,15 +237,6 @@ export class EditCommandeComponent implements OnInit {
               confirmButtonColor: '#dc3545'
             });
           }
-        });
-      },
-      error: (error) => {
-        console.error('Erreur lors de la récupération de commande_produit ID:', error);
-        Swal.fire({
-          icon: 'error',
-          title: 'Erreur',
-          text: 'Impossible de récupérer les détails de la commande.',
-          confirmButtonColor: '#dc3545'
         });
       }
     });

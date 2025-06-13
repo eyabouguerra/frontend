@@ -19,6 +19,14 @@ body{
     font-weight: bold;
 }
 
+.row {
+  margin-bottom: 10px;
+}
+
+.form-control[readonly] {
+  background-color: #e9ecef;
+  opacity: 1;
+}
 
   .custom-btn {
       background-color: rgb(247, 183, 51); /* Couleur dorée */

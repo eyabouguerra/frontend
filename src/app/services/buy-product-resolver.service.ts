@@ -7,6 +7,8 @@ import { Product } from 'src/app/model/product.model';  // Vérifie bien le chem
 @Injectable({
   providedIn: 'root'         
 })
+
+//recuperer les donnees du produit 
 export class BuyProductResolverService implements Resolve<Product[]> {
 
   constructor(private productService: ProduitService) { }

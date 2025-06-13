@@ -1,0 +1,56 @@
+.product-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+.product-table thead {
+  background-color: #343a40;
+  color: #fff;
+}
+
+.product-table th {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.product-table td {
+  padding: 12px;
+  border-bottom: 1px solid #dee2e6;
+  text-align: left;
+}
+
+.product-table tr:hover {
+  background-color: #f1f1f1;
+  transition: background-color 0.3s ease;
+}
+
+.product-table th,
+.product-table td {
+  font-size: 0.9rem;
+}
+
+mat-dialog-content {
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+/* Style pour le bouton Fermer */
+mat-dialog-actions button {
+  background-color: #f7b733; /* Couleur de fond demandée */
+  color: #000; /* Texte en noir pour contraste */
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+}
+
+mat-dialog-actions button:hover {
+  background-color: #e0a62b; /* Légère variation au survol pour un effet interactif */
+  color: #000;
+}

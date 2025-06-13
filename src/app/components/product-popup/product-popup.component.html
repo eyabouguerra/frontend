@@ -1,0 +1,27 @@
+<h2 mat-dialog-title>Liste des Produits</h2>
+<mat-dialog-content>
+  <table class="product-table">
+    <thead>
+      <tr>
+        <th>Produit</th>
+        <th>Quantité</th>
+        <th>Type</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let p of produits">
+        <td>{{ p.nomProduit }}</td>
+        <td>{{ p.quantite }} L</td>
+        <td>{{ p.typeProduit }}</td>
+      </tr>
+    </tbody>
+  </table>
+  
+  <!-- Message si aucun produit -->
+  <div *ngIf="produits.length === 0" class="text-center p-4">
+    <p>Aucun produit dans cette commande.</p>
+  </div>
+</mat-dialog-content>
+<mat-dialog-actions>
+  <button mat-button (click)="onClose()">Fermer</button>
+</mat-dialog-actions>

@@ -17,6 +17,7 @@ export class LoginComponent implements OnInit {
   constructor(private fb : FormBuilder,private userService:UserService,
     private userAuthService:UserAuthService,
     private router:Router){}
+
   ngOnInit(): void {
     this.loginForm = this.fb.group({
       firstName: new FormControl('', [ Validators.required]),
@@ -81,5 +82,6 @@ export class LoginComponent implements OnInit {
       }
     })
 }
+
 
 }

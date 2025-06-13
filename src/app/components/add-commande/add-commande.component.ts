@@ -50,10 +50,10 @@ export class AddCommandeComponent implements OnInit {
         Validators.required,
         Validators.maxLength(50),
         Validators.pattern(/^[A-Za-z0-9\-_]+$/)
-      ]], // Suppression du validateur asynchrone qui peut bloquer le formulaire
+      ]],
       dateCommande: [this.getTodayDate(), Validators.required],
       client: [null, Validators.required],
-      produits: this.fb.array([]), // Suppression du Validators.required
+      produits: this.fb.array([]), 
       totalPrice: [{ value: 0, disabled: true }]
     });
 
@@ -78,10 +78,6 @@ export class AddCommandeComponent implements OnInit {
     this.clientService.getAllClients().subscribe({
       next: (data) => {
         this.clients = data;
-        // Si des clients sont disponibles, sélectionner le premier par défaut
-      /*  if (data.length > 0) {
-          this.addCommandeForm.get('client')?.setValue(data[0].clientId);
-        }*/
         this.cdr.detectChanges();
       },
       error: (err) => {
